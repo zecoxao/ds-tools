@@ -8,6 +8,7 @@ import struct
 import sys
 import binascii
 import time
+import hexdump
 import argparse
 from construct import *
 
@@ -16,9 +17,8 @@ class HID_REQ:
         usb.util.CTRL_IN, usb.util.CTRL_TYPE_CLASS, usb.util.CTRL_RECIPIENT_INTERFACE)
     HOST_TO_DEV = usb.util.build_request_type(
         usb.util.CTRL_OUT, usb.util.CTRL_TYPE_CLASS, usb.util.CTRL_RECIPIENT_INTERFACE)
-    GET_INFO   = 0x20 #32
-    GET_REPORT = 0x80 #128
-    SET_REPORT = 0x81 #129
+    GET_REPORT = 0x01
+    SET_REPORT = 0x09
 
 VALID_DEVICE_IDS = [
     (0x054c, 0x0ce6),
@@ -60,46 +60,12 @@ class DS:
         buf = struct.pack('B', report_id) + buf
         return dev.ctrl_transfer(HID_REQ.HOST_TO_DEV, HID_REQ.SET_REPORT, (3 << 8) | report_id, 0, buf)
     
-    def hid_get_info(self, report_id, size):
-        dev = self.__dev
-        #ctrl_transfer(bmRequestType, bRequest, wValue=0, wIndex=0, data_or_wLength=None, timeout=None)
-        assert isinstance(size, int), 'get_info size must be integer'
-        assert report_id <= 0xff, 'only support report_type == 0'
-        return dev.ctrl_transfer(HID_REQ.DEV_TO_HOST, HID_REQ.GET_INFO, report_id, 0, size + 1)[1:].tobytes()
-
 class Handlers:
     def __init__(self, dev):
         self.__dev = dev
 
-    class VersionInfo:
-        version_info_t = Struct(
-            'compile_date' / PaddedString(0x10, encoding='ascii'),
-            'compile_time' / PaddedString(0x10, encoding='ascii'),
-            'hw_ver_major' / Int16ul,
-            'hw_ver_minor' / Int16ul,
-            'sw_ver_major' / Int32ul,
-            'sw_ver_minor' / Int16ul,
-            'sw_series' / Int16ul,
-            'code_size' / Int32ul,
-        )
-    
-        def __init__(s, buf):
-            s.info = s.version_info_t.parse(buf)
-    
-        def __repr__(s):
-            l = 'Compiled at: %s %s\n'\
-                'hw_ver:%04x.%04x\n'\
-                'sw_ver:%08x.%04x sw_series:%04x\n'\
-                'code size:%08x' % (
-                    s.info.compile_date, s.info.compile_time,
-                    s.info.hw_ver_major, s.info.hw_ver_minor,
-                    s.info.sw_ver_major, s.info.sw_ver_minor, s.info.sw_series,
-                    s.info.code_size
-                )
-            return l
-
     def info(self, args):
-        info = self.VersionInfo(self.__dev.hid_get_info(0x20, 0x30))
+        info = self.__dev.hid_get_report(0x20, 0x10)
         print(info)
 
 ds = DS()
