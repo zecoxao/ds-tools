@@ -1,0 +1,3 @@
+Waiting for a DualSense...
+Found a DualSense: vendorId=054c productId=0ce6
+b'Jun 16 2023 17:08'
